@@ -13,6 +13,18 @@ Server::~Server()
 	}
 }
 
+Client * Server::FindClientByName(const string & name)
+{
+	for (auto pClient : m_clientList)
+	{
+		if (pClient->GetName() == name)
+		{
+			return pClient;
+		}
+	}
+	return nullptr;
+}
+
 Server * Server::Create(u_short port)
 {
 	WORD sockVer = MAKEWORD(2, 2);
@@ -73,7 +85,11 @@ int Server::StartServer()
 			return 2;
 		}
 		Client *pClient = new Client(clientSocket, clientAddr);
+
+		m_listMt.lock();
 		m_clientList.push_back(pClient);
+		m_listMt.unlock();
+
 		cout << "接收到来自" << inet_ntoa(clientAddr.sin_addr) << "的链接" << endl;
 
 		thread clientThread(&Server::ClientThread, this, pClient);
@@ -98,61 +114,150 @@ int Server::ClientThread(Client *pClient)
 			}
 
 			int flag = *(int*)&dataBuff[0];
-			if (flag == RT_REQUEST_CHAT)			//请求聊天
+			if (flag == RT_REQUEST_CHAT)//=====================请求聊天========================================================
 			{
-				string userName = data.data.requestChat.userName;
-				SOCKET clientSocket = 0;
+				Client *client = FindClientByName(data.data.requestChat.userName);
+
+				RESPONSE response;
+				if (client)
+				{					
+					response.data.chatRequest.flag = RE_CHAT_REQUEST;
+					strcpy(response.data.chatRequest.userName, pClient->GetName().c_str());
+					send(client->GetSocket(), response.ruler, sizeof(response.data.chatRequest), 0);
+				}
+				else
+				{
+					response.data.error.flag = RE_ERROR;
+					strcpy(response.data.error.errorMsg, "no such user");
+					send(pClient->GetSocket(), response.ruler, sizeof(response.data.error), 0);
+				}
+			}
+			else if (flag == RT_REGISTERED)//=====================注册==============================================================
+			{
+				string userName = data.data.registered.userName;
+				
+				if (FindClientByName(userName) != nullptr)	//如果重名了
+				{
+					RESPONSE response;
+					response.data.error.flag = RE_ERROR;
+					strcpy(response.data.error.errorMsg, "duplication of name");
+					send(pClient->GetSocket(), response.ruler, sizeof(response.data.error), 0);
+				}
+				else
+				{	
+					pClient->SetName(userName);
+				}			
+
+			}
+			else if (flag == RT_AGREE)//=====================聊天请求的回执========================================================
+			{
+				Client *client = FindClientByName(data.data.agree.userName);
+				if (!client)	continue;
+
+				RESPONSE response;
+			
+				if (data.data.agree.isAgree == 1)
+				{
+					response.data.agreeReturn.flag = RE_AGREE_RETURN;
+					response.data.agreeReturn.isAgree = 1;
+					send(client->GetSocket(), response.ruler, sizeof(response.data.agreeReturn), 0);
+
+					pClient->SetConnenter(client);
+					client->SetConnenter(pClient);			
+				}
+				else if (data.data.agree.isAgree == 0)
+				{
+					response.data.agreeReturn.flag = RE_AGREE_RETURN;
+					response.data.agreeReturn.isAgree = 0;
+					send(client->GetSocket(), response.ruler, sizeof(response.data.agreeReturn), 0);
+				}
+				else
+				{
+					response.data.error.flag = ERROR;
+					strcpy(response.data.error.errorMsg, "'isAgree'is wrong");
+					send(pClient->GetSocket(), response.ruler, sizeof(response.data.error), 0);
+				}
+			}
+			else if (flag == RT_EXIT_CHAT)//========================退出聊天=====================================================
+			{
+				RESPONSE response;
+				if (pClient->GetConnenter() == nullptr)
+				{
+					response.data.error.flag = RE_ERROR;
+					strcpy(response.data.error.errorMsg, "no connenter");
+					send(pClient->GetSocket(), response.ruler, sizeof(response.data.error), 0);
+				}
+				else
+				{
+					response.data.exitChatReturn.flag = RE_EXIT_CHAT_RETURN;
+					send(pClient->GetConnenter()->GetSocket(), response.ruler, sizeof(response.data.exitChatReturn), 0);
+
+					pClient->GetConnenter()->SetConnenter(nullptr);
+					pClient->SetConnenter(nullptr);
+				}
+			}
+			else if (flag == RT_SEND)//==============================发送消息===========================================
+			{
+				RESPONSE response;
+				if (pClient->GetConnenter() == nullptr)
+				{
+					response.data.error.flag = RE_ERROR;
+					strcpy(response.data.error.errorMsg, "no connenter");
+					send(pClient->GetSocket(), response.ruler, sizeof(response.data.error), 0);
+				}
+				else
+				{
+					response.data.receive.flag = RE_RECEIVE;
+					strcpy(response.data.receive.message, data.data.send.message);
+					send(pClient->GetConnenter()->GetSocket(), response.ruler, sizeof(response.data.receive), 0);
+				}
+			}
+			else if (flag == RT_GET_LIST)//===========================获取在线用户列表=====================================
+			{
+				RESPONSE response;
+				
+				string list = "";
 				for (auto client : m_clientList)
 				{
-					if (client->GetName() == userName)
+					list += client->GetName();
+					list += "\n";
+				}
+				if (list.length() < 124)
+				{
+					response.data.sendList.flag = RE_SEND_LIST;
+					strcpy(response.data.sendList.list, list.c_str());
+					send(pClient->GetSocket(), response.ruler, sizeof(response.data.sendList), 0);
+				}
+				else
+				{
+					response.data.error.flag = RE_ERROR;
+					strcpy(response.data.error.errorMsg, "faild");
+					send(pClient->GetSocket(), response.ruler, sizeof(response.data.error), 0);
+				}
+			}
+			else if (flag == RT_EXIT)//==========================退出============================================
+			{
+				if (pClient->GetConnenter() != nullptr)
+				{
+					RESPONSE response;
+					response.data.exitChatReturn.flag = RE_EXIT_CHAT_RETURN;
+					send(pClient->GetConnenter()->GetSocket(), response.ruler, sizeof(response.data.exitChatReturn), 0);
+
+					pClient->GetConnenter()->SetConnenter(nullptr);
+				}
+				for (size_t i = 0; i < m_clientList.size(); i++)
+				{
+					if (m_clientList[i] == pClient)
 					{
-						clientSocket = client->GetSocket();
+						m_listMt.lock();
+						m_clientList.erase(m_clientList.begin() + i);
+						m_listMt.unlock();
 						break;
 					}
 				}
-
-				if (clientSocket != 0)
-				{
-					RESPONSE response;
-					response.data.chatRequest.flag = RE_CHAT_REQUEST;
-					strcpy(response.data.chatRequest.usetName, pClient->GetName().c_str());
-
-					send(clientSocket, response.ruler, sizeof(response.data.chatRequest), 0);
-				}
-				else
-				{
-					RESPONSE response;
-					response.data.agreeReturn.flag = RE_AGREE_RETURN;
-					response.data.agreeReturn.isAgree = 0;
-
-					send(pClient->GetSocket(), response.ruler, sizeof(response.data.agreeReturn), 0);
-				}
-			}
-			else if (flag == RT_REGISTERED)			//注册
-			{
-				string userName = data.data.registered.userName;
-				bool isRepeat = false;	//检测是否重名
-				for (auto client : m_clientList)
-				{
-					if (client->GetName() == userName) isRepeat = true;
-				}
-				RESPONSE response;
-				response.data.registeredReturn.flag = RE_REGISTERED_RETURN;
-				if (isRepeat)	//如果重名了
-				{
-					response.data.registeredReturn.isSuccess = 0;
-				}
-				else
-				{
-					response.data.registeredReturn.isSuccess = 1;
-					pClient->SetName(userName);
-				}
-				send(pClient->GetSocket(), response.ruler, sizeof(response.data.registeredReturn), 0);
-
-			}
-			else if (flag == RT_AGREE)
-			{
-
+				closesocket(pClient->GetSocket());
+				delete pClient;
+				break;
 			}
 		}
 	}

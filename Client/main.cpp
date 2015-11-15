@@ -30,6 +30,7 @@ int main()
 
 	send(sock, request.ruler, sizeof(request.data.registered), 0);
 	Sleep(10);
+
 	RESPONSE response;
 	char dataBuffer[BUFFER_SIZE];
 	int ret = recv(sock, dataBuffer, BUFFER_SIZE, 0);
@@ -40,16 +41,9 @@ int main()
 			response.ruler[i] = dataBuffer[i];
 		}
 		int flag = *(int*)&dataBuffer[0];
-		if (flag == RE_REGISTERED_RETURN)
+		if (flag == RE_ERROR)
 		{
-			if (response.data.registeredReturn.isSuccess == 1)
-			{
-				cout << "×¢²á³É¹¦" << endl;
-			}
-			else
-			{
-				cout << "×¢²áÊ§°Ü" << endl;
-			}
+			cout << response.data.error.errorMsg << endl;
 		}
 	}
 

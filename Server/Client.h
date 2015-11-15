@@ -10,6 +10,8 @@ public:
 	string GetName() { return m_name; }
 	SOCKET GetSocket() { return m_socket; }
 	sockaddr_in GetAddr() { return m_addr; }
+	Client *GetConnenter() { return m_connenter; }
+	void SetConnenter(Client *connenter) { m_connenter = connenter; }
 
 private:
 	SOCKET m_socket;

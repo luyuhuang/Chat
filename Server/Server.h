@@ -15,7 +15,10 @@ private:
 	Server();
 	~Server();
 
+	Client *FindClientByName(const string &name);
+
 	SOCKET m_socket;
 	sockaddr_in m_addr;
 	vector<Client*> m_clientList;
+	mutex m_listMt;
 };
