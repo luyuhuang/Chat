@@ -6,6 +6,8 @@
 #include <mutex>
 #include <iostream>	
 #include <string>
+#include <sstream>
+#include <vector>
 #include "..\request.h"
 
 #pragma comment(lib,"ws2_32.lib")
