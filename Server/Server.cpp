@@ -164,6 +164,14 @@ int Server::ClientThread(Client *pClient)
 					response.data.agreeReturn.isAgree = 1;
 					send(client->GetSocket(), response.ruler, sizeof(response.data.agreeReturn), 0);
 
+					if (client->GetConnenter() != nullptr)
+					{
+						response.data.exitChatReturn.flag = RE_EXIT_CHAT_RETURN;
+						send(client->GetConnenter()->GetSocket(), response.ruler, sizeof(response.data.exitChatReturn), 0);
+
+						client->GetConnenter()->SetConnenter(nullptr);
+					}
+
 					pClient->SetConnenter(client);
 					client->SetConnenter(pClient);			
 				}

@@ -186,7 +186,7 @@ void Client::StartClient()
 				}
 				else
 				{
-					cout << "命令输入错误！" << endl;
+					cout << "命令错误！" << endl;
 				}
 			}
 			else if (cmdHead == "m")
@@ -217,8 +217,15 @@ void Client::StartClient()
 			}
 			else if (cmdHead == "help")
 			{
-
+				cout << "===================帮助====================\n";
+				cout << "list 获取在线用户列表\n";
+				cout << "chat with <用户名> 与指定用户聊天\n";
+				cout << "chat exit 退出当前会话\n";
+				cout << "m <信息内容> 发送信息\n";
+				cout << "exit 退出程序，请注意，务必输入exit退出程序\n";
+				cout << "help 查看帮助\n" << endl;
 			}
+			else if (cmdHead == "");
 			else
 			{
 				cout << "命令错误" << endl;
