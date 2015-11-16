@@ -55,22 +55,24 @@ Server * Server::Create(u_short port)
 		return nullptr;
 	}
 
-
 	return server;
 }
 
 void Server::release()
 {
+	closesocket(m_socket);
+	WSACleanup();
 	delete this;
 }
 
-int Server::StartServer()
+int Server::Listen()
 {
 	if (listen(m_socket, 5) == SOCKET_ERROR)
 	{
 		cout << "监听失败" << endl;
 		return 1;
 	}
+	cout << "服务器已启动" << endl;
 
 	while (true)
 	{
@@ -255,6 +257,8 @@ int Server::ClientThread(Client *pClient)
 						break;
 					}
 				}
+
+				cout << "地址为" << inet_ntoa(pClient->GetAddr().sin_addr) << "的用户已退出" << endl;
 				closesocket(pClient->GetSocket());
 				delete pClient;
 				break;
@@ -262,6 +266,49 @@ int Server::ClientThread(Client *pClient)
 		}
 	}
 
+	return 0;
+}
+
+int Server::StartServer()
+{
+	thread listen(&Server::Listen, this);
+	listen.detach();
+
+	while (true)
+	{
+		string cmd;
+		cin >> cmd;
+	
+		if (cmd == "exit")
+		{
+			if (m_clientList.size() != 0)
+			{
+				cout << "还有未断开的客户端" << endl;
+			}
+			else
+			{
+				break;
+			}	
+		}
+		else if (cmd == "cexit")
+		{
+			cout << "是否强制退出服务器？这将使还未断开的客户端掉线(y/n)";
+			string isexit;
+			cin >> isexit;
+			if (isexit == "y")
+			{
+				break;
+			}
+		}
+		else if (cmd == "num")
+		{
+			cout << "目前有" << m_clientList.size() << "人在线" << endl;
+		}
+		else
+		{
+			cout << "命令错误" << endl;
+		}
+	}
 	return 0;
 }
 

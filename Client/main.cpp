@@ -11,7 +11,11 @@ int main()
 	string userName;
 	cin >> userName;
 
-	auto client = Client::Create(userName, "127.0.0.1:9999");
+	auto client = Client::Create(userName, "heyoh.wicp.net:14034");
+	if (client == nullptr)
+	{
+		cout << "Æô¶¯Ê§°Ü" << endl;
+	}
 	client->StartClient();
 	client->release();
 

@@ -8,9 +8,9 @@ public:
 	static Server *Create(u_short port);
 	void release();
 
-	int StartServer();
+	int Listen();
 	int ClientThread(Client *pClient);
-
+	int StartServer();
 private:
 	Server();
 	~Server();

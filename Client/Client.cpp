@@ -3,6 +3,8 @@
 #define PUTS_LOCK m_puts.lock()
 #define PUTS_UNLOCK m_puts.unlock()
 
+#define endl "\n"<<">"
+
 Client::Client()
 	: m_isChatRequset(false)
 {}
@@ -79,39 +81,12 @@ int Client::GetResponse()
 			}
 			else if (flag == RE_CHAT_REQUEST)//======================聊天请求=======================================
 			{
-				PUTS_LOCK; cout << "\n一位名叫" << data.data.chatRequest.userName << "的好友请求和你聊天，同意(y)还是拒绝(n)？"; PUTS_UNLOCK;
+				PUTS_LOCK; cout << "一位名叫" << data.data.chatRequest.userName << "的好友请求和你聊天，同意(y)还是拒绝(n)？"; PUTS_UNLOCK;
 				
 				m_field.lock();
 				m_isChatRequset = true;
 				m_rtUserName = data.data.chatRequest.userName;
 				m_field.unlock();
-				//char agree;
-				//while (true)
-				//{
-				//	cin >> agree;
-				//	if (agree == 'y')
-				//	{
-				//		PUTS_LOCK; cout << "正在开启与" << data.data.chatRequest.userName << "的通话，这将终止当前的通话" << endl; PUTS_UNLOCK;
-
-				//		REQUEST request;
-				//		request.data.agree.flag = RT_AGREE;
-				//		request.data.agree.isAgree = 1;
-				//		strcpy(request.data.agree.userName, data.data.chatRequest.userName);
-
-				//		send(m_socket, request.ruler, sizeof(request.data.agree), 0);
-				//	}
-				//	else if (agree == 'n')
-				//	{
-				//		PUTS_LOCK; cout << "已拒绝" << endl; PUTS_UNLOCK;
-
-				//		REQUEST request;
-				//		request.data.agree.flag = RT_AGREE;
-				//		request.data.agree.isAgree = 0;
-				//		strcpy(request.data.agree.userName, data.data.chatRequest.userName);
-
-				//		send(m_socket, request.ruler, sizeof(request.data.agree), 0);
-				//	}
-				//}
 			}
 			else if (flag == RE_AGREE_RETURN)//===========================请求聊天的回执=================================
 			{
@@ -147,7 +122,6 @@ void Client::StartClient()
 {
 	while (true)
 	{
-		PUTS_LOCK; cout << "\n>>>"; PUTS_UNLOCK;
 		string _cmd;
 		getline(cin, _cmd);
 		stringstream cmd(_cmd);
@@ -169,6 +143,7 @@ void Client::StartClient()
 					strcpy(request.data.agree.userName, m_rtUserName.c_str());
 
 					send(m_socket, request.ruler, sizeof(request.data.agree), 0);
+					break;
 				}
 				else if (cmdHead == "n")
 				{
@@ -180,8 +155,10 @@ void Client::StartClient()
 					strcpy(request.data.agree.userName, m_rtUserName.c_str());
 
 					send(m_socket, request.ruler, sizeof(request.data.agree), 0);
+					break;
 				}
 			}
+			m_isChatRequset = false;
 		}
 		else 
 		{
@@ -237,6 +214,14 @@ void Client::StartClient()
 
 				send(m_socket, request.ruler, sizeof(request.data.exit), 0);
 				break;
+			}
+			else if (cmdHead == "help")
+			{
+
+			}
+			else
+			{
+				cout << "命令错误" << endl;
 			}
 		}
 	}
